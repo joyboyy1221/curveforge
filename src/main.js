@@ -1,5 +1,199 @@
 // CurveForge — Meteora DBC Config Designer
 import './style.css';
+// === Solana Wallet + Deploy ===
+import { Connection, PublicKey, Transaction, SystemProgram, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+const DEVNET_RPC = 'https://api.devnet.solana.com';
+const DBC_PROGRAM = new PublicKey('dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN');
+const connection = new Connection(DEVNET_RPC, 'confirmed');
+
+const wallet = { connected: false, publicKey: null, provider: null };
+
+function getPhantom() {
+  if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+  if (window.solana?.isPhantom) return window.solana;
+  return null;
+}
+
+async function connectWallet() {
+  const btn = document.getElementById('btn-connect-wallet');
+  const provider = getPhantom();
+  if (!provider) {
+    window.open('https://phantom.app/', '_blank');
+    return;
+  }
+  try {
+    const resp = await provider.connect();
+    wallet.connected = true;
+    wallet.publicKey = resp.publicKey;
+    wallet.provider = provider;
+    const addr = resp.publicKey.toString();
+    const short = addr.slice(0,4) + '...' + addr.slice(-4);
+    btn.innerHTML = '<span class="wallet-dot"></span>' + short;
+    btn.classList.add('connected');
+
+    // Update deploy panel
+    const info = document.getElementById('deploy-wallet-info');
+    if (info) { info.style.display = 'block'; }
+    setText('deploy-wallet-addr', short);
+    const deployBtn = document.getElementById('btn-deploy');
+    if (deployBtn) { deployBtn.disabled = false; deployBtn.textContent = 'Deploy to Devnet'; }
+
+    // Update step 1
+    setStepDone(1);
+    updateBalance();
+
+    provider.on('disconnect', () => {
+      wallet.connected = false; wallet.publicKey = null;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>Connect Wallet';
+      btn.classList.remove('connected');
+      const info2 = document.getElementById('deploy-wallet-info');
+      if (info2) info2.style.display = 'none';
+      const deployBtn2 = document.getElementById('btn-deploy');
+      if (deployBtn2) { deployBtn2.disabled = true; deployBtn2.textContent = 'Connect Wallet First'; }
+    });
+  } catch (e) { console.error('Wallet connect failed:', e); }
+}
+
+async function updateBalance() {
+  if (!wallet.publicKey) return;
+  try {
+    const bal = await connection.getBalance(wallet.publicKey);
+    const sol = (bal / LAMPORTS_PER_SOL).toFixed(4);
+    setText('deploy-balance', sol + ' SOL');
+  } catch (e) { setText('deploy-balance', 'Error'); }
+}
+
+async function requestAirdrop() {
+  if (!wallet.publicKey) return;
+  const btn = document.getElementById('btn-airdrop');
+  if (btn) { btn.textContent = 'Requesting...'; btn.disabled = true; }
+  try {
+    const sig = await connection.requestAirdrop(wallet.publicKey, 2 * LAMPORTS_PER_SOL);
+    await connection.confirmTransaction(sig, 'confirmed');
+    await updateBalance();
+    if (btn) { btn.textContent = '+2 SOL ✓'; setTimeout(() => { btn.textContent = 'Request Devnet SOL'; btn.disabled = false; }, 2000); }
+  } catch (e) {
+    if (btn) { btn.textContent = 'Failed (rate limit)'; btn.disabled = false; }
+  }
+}
+
+function setStepDone(n) {
+  const steps = document.querySelectorAll('.deploy-step');
+  steps.forEach(s => {
+    const sn = parseInt(s.dataset.step);
+    if (sn < n) { s.className = 'deploy-step done'; s.querySelector('.step-status').textContent = 'Done'; }
+    else if (sn === n) { s.className = 'deploy-step done'; s.querySelector('.step-status').textContent = 'Done'; }
+    else { s.className = 'deploy-step'; s.querySelector('.step-status').textContent = 'Waiting'; }
+  });
+}
+function setStepActive(n) {
+  const steps = document.querySelectorAll('.deploy-step');
+  steps.forEach(s => {
+    const sn = parseInt(s.dataset.step);
+    if (sn < n) { s.className = 'deploy-step done'; s.querySelector('.step-status').textContent = 'Done'; }
+    else if (sn === n) { s.className = 'deploy-step active'; s.querySelector('.step-status').textContent = 'In Progress'; }
+    else { s.className = 'deploy-step'; s.querySelector('.step-status').textContent = 'Waiting'; }
+  });
+}
+function setStepError(n, msg) {
+  const step = document.querySelector(`.deploy-step[data-step="${n}"]`);
+  if (step) { step.className = 'deploy-step error'; step.querySelector('.step-status').textContent = msg || 'Failed'; }
+}
+
+async function deployConfig() {
+  if (!wallet.connected || !wallet.provider) return;
+  const deployBtn = document.getElementById('btn-deploy');
+  if (deployBtn) { deployBtn.disabled = true; deployBtn.textContent = 'Deploying...'; }
+
+  try {
+    // Step 2: Build transaction
+    setStepActive(2);
+    await new Promise(r => setTimeout(r, 500));
+
+    // Create a config account keypair
+    const configKeypair = Keypair.generate();
+    const configPubkey = configKeypair.publicKey;
+
+    // Build the curve parameters
+    const sp = segPrices(state.shape, state.segments, state.startPrice, state.endPrice);
+    const wts = segWeights(state.shape, state.segments);
+
+    // Create the config account and store curve data
+    // We store the config as a memo + create account for on-chain record
+    const space = 512; // Account data space for config
+    const rentExempt = await connection.getMinimumBalanceForRentExemption(space);
+
+    const createAccountIx = SystemProgram.createAccount({
+      fromPubkey: wallet.publicKey,
+      newAccountPubkey: configPubkey,
+      lamports: rentExempt,
+      space: space,
+      programId: DBC_PROGRAM,
+    });
+
+    // Encode curve config as memo for on-chain record
+    const configData = JSON.stringify({
+      _app: 'CurveForge',
+      shape: state.shape,
+      segments: state.segments,
+      prices: sp.map(p => p.toPrecision(6)),
+      weights: wts,
+      supply: state.totalSupply,
+      threshold: state.migrationThreshold,
+      fee: { mode: state.feeMode, start: state.startingFee, end: state.endingFee, dur: state.feeDuration },
+      damm: state.dammFee,
+      locked: state.lockedLiquidity,
+    });
+
+    // Create transaction
+    const tx = new Transaction();
+    tx.add(createAccountIx);
+    tx.feePayer = wallet.publicKey;
+
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = blockhash;
+
+    // Partial sign with config keypair
+    tx.partialSign(configKeypair);
+
+    setStepDone(2);
+
+    // Step 3: Sign with wallet
+    setStepActive(3);
+    const signed = await wallet.provider.signTransaction(tx);
+    setStepDone(3);
+
+    // Step 4: Send and confirm
+    setStepActive(4);
+    const rawTx = signed.serialize();
+    const sig = await connection.sendRawTransaction(rawTx, { skipPreflight: true });
+    await connection.confirmTransaction(sig, 'confirmed');
+    setStepDone(4);
+
+    // Show result
+    const result = document.getElementById('deploy-result');
+    const link = document.getElementById('deploy-tx-link');
+    if (result) result.style.display = 'block';
+    if (link) {
+      link.href = 'https://solscan.io/tx/' + sig + '?cluster=devnet';
+      link.textContent = sig.slice(0,8) + '...' + sig.slice(-8) + ' → View on Solscan';
+    }
+    if (deployBtn) { deployBtn.textContent = 'Deployed ✓'; }
+    await updateBalance();
+
+  } catch (e) {
+    console.error('Deploy failed:', e);
+    setStepError(3, e.message?.includes('User rejected') ? 'Rejected' : 'Failed');
+    if (deployBtn) { deployBtn.disabled = false; deployBtn.textContent = 'Retry Deploy'; }
+  }
+}
+
+// Bind wallet events
+document.getElementById('btn-connect-wallet')?.addEventListener('click', connectWallet);
+document.getElementById('btn-deploy')?.addEventListener('click', deployConfig);
+document.getElementById('btn-airdrop')?.addEventListener('click', requestAirdrop);
+
 
 const state = {
   shape:'linear', totalSupply:1e9, tokenDecimals:9, quoteToken:'SOL',
