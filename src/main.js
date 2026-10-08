@@ -3,9 +3,124 @@ import './style.css';
 // === Solana Wallet + Deploy ===
 import { Connection, PublicKey, Transaction, SystemProgram, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
-const DEVNET_RPC = 'https://api.devnet.solana.com';
+const NETWORKS = {
+  devnet: { rpc: 'https://api.devnet.solana.com', label: 'Devnet', explorer: 'https://solscan.io/tx/TX?cluster=devnet' },
+  mainnet: { rpc: 'https://api.mainnet-beta.solana.com', label: 'Mainnet', explorer: 'https://solscan.io/tx/TX' }
+};
+let currentNetwork = 'mainnet';
 const DBC_PROGRAM = new PublicKey('dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN');
-const connection = new Connection(DEVNET_RPC, 'confirmed');
+let connection = new Connection(NETWORKS[currentNetwork].rpc, 'confirmed');
+
+function switchNetwork(net) {
+  currentNetwork = net;
+  connection = new Connection(NETWORKS[net].rpc, 'confirmed');
+  document.querySelectorAll('.network-toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.network === net);
+  });
+  const badge = document.querySelector('.network-badge');
+  if (badge) badge.textContent = NETWORKS[net].label;
+  const airdropBtn = document.getElementById('btn-airdrop');
+  if (airdropBtn) airdropBtn.style.display = net === 'devnet' ? 'block' : 'none';
+  if (wallet.connected) updateBalance();
+  fetchLiveDeployments();
+}
+
+// === Shareable URLs ===
+function encodeConfig() {
+  const cfg = {
+    s: state.shape, sp: state.startPrice, ep: state.endPrice,
+    sg: state.segments, mt: state.migrationThreshold,
+    fm: state.feeMode, sf: state.startingFee, ef: state.endingFee,
+    fd: state.feeDuration, df: state.dammFee, ll: state.lockedLiquidity,
+    ts: state.totalSupply, td: state.tokenDecimals, qt: state.quoteToken
+  };
+  return btoa(JSON.stringify(cfg));
+}
+function decodeConfig(hash) {
+  try {
+    const cfg = JSON.parse(atob(hash));
+    if (cfg.s) state.shape = cfg.s;
+    if (cfg.sp) state.startPrice = cfg.sp;
+    if (cfg.ep) state.endPrice = cfg.ep;
+    if (cfg.sg) state.segments = cfg.sg;
+    if (cfg.mt) state.migrationThreshold = cfg.mt;
+    if (cfg.fm) state.feeMode = cfg.fm;
+    if (cfg.sf) state.startingFee = cfg.sf;
+    if (cfg.ef) state.endingFee = cfg.ef;
+    if (cfg.fd) state.feeDuration = cfg.fd;
+    if (cfg.df) state.dammFee = cfg.df;
+    if (cfg.ll) state.lockedLiquidity = cfg.ll;
+    if (cfg.ts) state.totalSupply = cfg.ts;
+    if (cfg.td) state.tokenDecimals = cfg.td;
+    if (cfg.qt) state.quoteToken = cfg.qt;
+    syncUI(); updateAll();
+    return true;
+  } catch { return false; }
+}
+function shareConfig() {
+  const url = window.location.origin + window.location.pathname + '#cfg=' + encodeConfig();
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('btn-share');
+    if (btn) { const old = btn.textContent; btn.textContent = 'Link Copied!'; setTimeout(() => btn.textContent = old, 2000); }
+  });
+  window.location.hash = 'cfg=' + encodeConfig();
+}
+// Load from URL on init
+if (window.location.hash.startsWith('#cfg=')) {
+  decodeConfig(window.location.hash.slice(5));
+}
+
+// === Live Deployment Feed ===
+let liveDeployments = [];
+async function fetchLiveDeployments() {
+  const feedEl = document.getElementById('live-feed-list');
+  if (!feedEl) return;
+  feedEl.innerHTML = '<div class="feed-loading">Loading on-chain data...</div>';
+  try {
+    const sigs = await connection.getSignaturesForAddress(DBC_PROGRAM, { limit: 10 });
+    liveDeployments = sigs;
+    if (sigs.length === 0) {
+      feedEl.innerHTML = '<div class="feed-empty">No recent transactions</div>';
+      return;
+    }
+    feedEl.innerHTML = sigs.map((s, i) => {
+      const time = s.blockTime ? new Date(s.blockTime * 1000) : null;
+      const ago = time ? timeAgo(time) : 'Unknown';
+      const sig = s.signature;
+      const short = sig.slice(0, 6) + '...' + sig.slice(-6);
+      const url = NETWORKS[currentNetwork].explorer.replace('TX', sig);
+      const status = s.err ? 'Failed' : 'Success';
+      const statusClass = s.err ? 'feed-status-err' : 'feed-status-ok';
+      return `<a href="${url}" target="_blank" class="feed-item">
+        <div class="feed-item-left">
+          <span class="feed-sig">${short}</span>
+          <span class="feed-time">${ago}</span>
+        </div>
+        <span class="feed-status ${statusClass}">${status}</span>
+      </a>`;
+    }).join('');
+    setText('live-count', sigs.length + ' recent');
+  } catch (e) {
+    feedEl.innerHTML = '<div class="feed-empty">Could not load — try switching network</div>';
+  }
+}
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
+// Bind share button
+document.getElementById('btn-share')?.addEventListener('click', shareConfig);
+// Bind network toggle
+document.querySelectorAll('.network-toggle-btn')?.forEach(b => {
+  b.addEventListener('click', () => switchNetwork(b.dataset.network));
+});
+// Load live feed on init
+setTimeout(fetchLiveDeployments, 500);
+
 
 const wallet = { connected: false, publicKey: null, provider: null };
 
@@ -176,8 +291,8 @@ async function deployConfig() {
     const link = document.getElementById('deploy-tx-link');
     if (result) result.style.display = 'block';
     if (link) {
-      link.href = 'https://solscan.io/tx/' + sig + '?cluster=devnet';
-      link.textContent = sig.slice(0,8) + '...' + sig.slice(-8) + ' → View on Solscan';
+      link.href = NETWORKS[currentNetwork].explorer.replace('TX', sig);
+      link.textContent = sig.slice(0,8) + '...' + sig.slice(-8) + ' → View on Solscan (' + NETWORKS[currentNetwork].label + ')';
     }
     if (deployBtn) { deployBtn.textContent = 'Deployed ✓'; }
     await updateBalance();
