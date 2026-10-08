@@ -1,0 +1,118 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CurveForge — Meteora DBC Config Designer</title>
+  <meta name="description" content="Design, simulate, and deploy Meteora Dynamic Bonding Curve configurations."/>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c0b0f'/%3E%3Cpath d='M6 26Q10 25 16 16Q22 7 26 6' stroke='%23e8622c' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/src/style.css"/>
+</head>
+<body>
+  <div class="ambient-bg"><div class="glow glow-1"></div><div class="glow glow-2"></div><div class="glow glow-3"></div><div class="grid-overlay"></div></div>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><div class="logo-icon"><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4 24L14 4L24 24" stroke="url(#lg1)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 18L14 8L21 18" stroke="url(#lg2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><defs><linearGradient id="lg1" x1="4" y1="4" x2="24" y2="24"><stop stop-color="#F54B00"/><stop offset="1" stop-color="#FF8A50"/></linearGradient><linearGradient id="lg2" x1="7" y1="8" x2="21" y2="18"><stop stop-color="#FF8A50"/><stop offset="1" stop-color="#FFB088"/></linearGradient></defs></svg></div><span class="logo-text">CurveForge</span><span class="logo-badge">by Meteora</span></a>
+      <div class="nav-tabs" id="nav-tabs">
+        <button class="nav-tab active" data-tab="designer">Designer</button>
+        <button class="nav-tab" data-tab="presets">Presets</button>
+        <button class="nav-tab" data-tab="simulator">Simulator</button>
+        <button class="nav-tab" data-tab="export">Export</button>
+      </div>
+      <div class="nav-right"><a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank" class="nav-link">Docs</a></div>
+    </div>
+  </nav>
+  <main class="main" id="main">
+    <section class="tab-content active" id="panel-designer">
+      <div class="designer-layout">
+        <aside class="controls-panel">
+          <div class="panel-header"><h2 class="panel-title">Curve Parameters</h2><button class="btn-ghost btn-sm" id="btn-reset-config">Reset</button></div>
+          <div class="control-section"><label class="control-label">Curve Shape</label>
+            <div class="shape-grid" id="shape-grid">
+              <button class="shape-btn active" data-shape="linear"><svg viewBox="0 0 48 32" class="shape-svg"><path d="M4 28L44 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Linear</span></button>
+              <button class="shape-btn" data-shape="exponential"><svg viewBox="0 0 48 32" class="shape-svg"><path d="M4 28Q20 26 30 16Q40 6 44 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>Exponential</span></button>
+              <button class="shape-btn" data-shape="flat"><svg viewBox="0 0 48 32" class="shape-svg"><path d="M4 20L36 18L44 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>Flat</span></button>
+              <button class="shape-btn" data-shape="scurve"><svg viewBox="0 0 48 32" class="shape-svg"><path d="M4 28Q10 28 16 24Q24 16 32 12Q38 8 44 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>S-Curve</span></button>
+            </div>
+          </div>
+          <div class="control-section"><label class="control-label">Token Settings</label>
+            <div class="section-body">
+              <div class="input-group"><label class="input-label">Total Supply</label><div class="input-with-unit"><input type="number" class="input" id="input-total-supply" value="1000000000" min="1000"/><span class="input-unit">tokens</span></div></div>
+              <div class="input-row"><div class="input-group"><label class="input-label">Decimals</label><select class="input select" id="input-token-decimals"><option value="6">6</option><option value="9" selected>9</option></select></div><div class="input-group"><label class="input-label">Quote</label><select class="input select" id="input-quote-token"><option value="SOL" selected>SOL</option><option value="USDC">USDC</option></select></div></div>
+            </div>
+          </div>
+          <div class="control-section"><label class="control-label">Curve Segments</label>
+            <div class="section-body">
+              <div class="input-group"><label class="input-label">Start Price</label><div class="input-with-unit"><input type="number" class="input" id="input-start-price" value="0.000000001" step="any"/><span class="input-unit" id="start-price-unit">SOL</span></div></div>
+              <div class="input-group"><label class="input-label">End Price</label><div class="input-with-unit"><input type="number" class="input" id="input-end-price" value="0.000001" step="any"/><span class="input-unit" id="end-price-unit">SOL</span></div></div>
+              <div class="input-group"><label class="input-label">Segments <span class="range-val" id="segments-value">3</span></label><input type="range" class="slider" id="input-segments" min="1" max="16" value="3"/></div>
+              <div class="input-group"><label class="input-label">Migration Threshold</label><div class="input-with-unit"><input type="number" class="input" id="input-migration-threshold" value="85" step="1"/><span class="input-unit" id="threshold-unit">SOL</span></div></div>
+            </div>
+          </div>
+          <div class="control-section"><label class="control-label">Fee Configuration</label>
+            <div class="section-body">
+              <div class="input-group"><label class="input-label">Fee Mode</label><select class="input select" id="input-fee-mode"><option value="exponential" selected>Exponential Decay</option><option value="linear">Linear Decay</option></select></div>
+              <div class="input-row"><div class="input-group"><label class="input-label">Start Fee</label><div class="input-with-unit"><input type="number" class="input" id="input-starting-fee" value="90" step="1" min="1" max="99"/><span class="input-unit">%</span></div></div><div class="input-group"><label class="input-label">End Fee</label><div class="input-with-unit"><input type="number" class="input" id="input-ending-fee" value="1" step="0.1" min="0.25"/><span class="input-unit">%</span></div></div></div>
+              <div class="input-group"><label class="input-label">Decay Duration</label><div class="input-with-unit"><input type="number" class="input" id="input-fee-duration" value="60" step="1" min="1"/><span class="input-unit">sec</span></div></div>
+            </div>
+          </div>
+          <div class="control-section"><label class="control-label">Migration</label>
+            <div class="section-body">
+              <div class="input-group"><label class="input-label">DAMM v2 Fee</label><select class="input select" id="input-damm-fee"><option value="25">0.25%</option><option value="100" selected>1.00%</option><option value="200">2.00%</option></select></div>
+              <div class="input-group"><label class="input-label">Locked Liquidity <span class="range-val" id="locked-liq-value">100%</span></label><input type="range" class="slider" id="input-locked-liq" min="10" max="100" value="100"/></div>
+            </div>
+          </div>
+        </aside>
+        <div class="curve-canvas-area">
+          <div class="canvas-header"><h1 class="canvas-title">Bonding Curve</h1><div class="canvas-stats"><div class="stat"><span class="stat-label">Start</span><span class="stat-value" id="stat-start-price">0.000000001</span></div><div class="stat-divider"></div><div class="stat"><span class="stat-label">End</span><span class="stat-value" id="stat-end-price">0.000001</span></div><div class="stat-divider"></div><div class="stat"><span class="stat-label">Multiplier</span><span class="stat-value accent" id="stat-multiplier">1000x</span></div></div></div>
+          <div class="canvas-wrapper"><canvas id="curve-chart"></canvas></div>
+          <div class="mini-charts"><div class="mini-chart-card"><div class="mini-chart-title">Fee Schedule</div><canvas id="fee-chart"></canvas></div><div class="mini-chart-card"><div class="mini-chart-title">Liquidity / Segment</div><canvas id="liquidity-chart"></canvas></div></div>
+        </div>
+        <aside class="info-panel">
+          <div class="panel-header"><h2 class="panel-title">Config Summary</h2></div>
+          <div class="summary-card">
+            <div class="summary-row"><span class="summary-key">Supply</span><span class="summary-val" id="sum-supply">1,000,000,000</span></div>
+            <div class="summary-row"><span class="summary-key">Quote</span><span class="summary-val" id="sum-quote">SOL</span></div>
+            <div class="summary-row"><span class="summary-key">Segments</span><span class="summary-val" id="sum-segments">3</span></div>
+            <div class="summary-row"><span class="summary-key">Start</span><span class="summary-val" id="sum-start">0.000000001 SOL</span></div>
+            <div class="summary-row"><span class="summary-key">End</span><span class="summary-val" id="sum-end">0.000001 SOL</span></div>
+            <div class="summary-row highlight"><span class="summary-key">Multiplier</span><span class="summary-val accent" id="sum-mult">1,000x</span></div>
+            <div class="summary-divider"></div>
+            <div class="summary-row"><span class="summary-key">Threshold</span><span class="summary-val" id="sum-threshold">85 SOL</span></div>
+            <div class="summary-row"><span class="summary-key">Start Fee</span><span class="summary-val" id="sum-start-fee">90%</span></div>
+            <div class="summary-row"><span class="summary-key">End Fee</span><span class="summary-val" id="sum-end-fee">1%</span></div>
+            <div class="summary-row"><span class="summary-key">DAMM Fee</span><span class="summary-val" id="sum-damm-fee">1.00%</span></div>
+            <div class="summary-row"><span class="summary-key">Locked</span><span class="summary-val" id="sum-locked">100%</span></div>
+          </div>
+          <div class="info-actions"><button class="btn btn-primary btn-full" id="btn-export-config">Export Config</button><button class="btn btn-secondary btn-full" id="btn-simulate">Simulate</button></div>
+        </aside>
+      </div>
+    </section>
+    <section class="tab-content" id="panel-presets">
+      <div class="presets-layout"><div class="presets-header"><div><h1 class="page-title">Config Presets</h1><p class="page-subtitle">Battle-tested DBC configurations for every launch type.</p></div><div class="presets-filters" id="presets-filters"><button class="filter-btn active" data-filter="all">All</button><button class="filter-btn" data-filter="meme">Meme</button><button class="filter-btn" data-filter="rwa">RWA</button><button class="filter-btn" data-filter="ai">AI</button><button class="filter-btn" data-filter="fair">Fair</button></div></div><div class="presets-grid" id="presets-grid"></div></div>
+    </section>
+    <section class="tab-content" id="panel-simulator">
+      <div class="simulator-layout">
+        <div class="sim-left"><h1 class="page-title">Launch Simulator</h1><p class="page-subtitle">Watch your curve play out buy-by-buy.</p>
+          <div class="sim-input-card"><div class="input-group"><label class="input-label">Buy Amount</label><div class="input-with-unit"><input type="number" class="input input-lg" id="sim-buy-amount" value="1" step="0.1"/><span class="input-unit" id="sim-buy-unit">SOL</span></div></div><button class="btn btn-primary btn-full" id="btn-sim-buy">Execute Buy</button><button class="btn btn-ghost btn-full" id="btn-sim-reset">Reset</button></div>
+          <div class="sim-stats-grid"><div class="sim-stat-card"><span class="sim-stat-label">Current Price</span><span class="sim-stat-value" id="sim-current-price">--</span></div><div class="sim-stat-card"><span class="sim-stat-label">Tokens Bought</span><span class="sim-stat-value" id="sim-tokens-bought">0</span></div><div class="sim-stat-card"><span class="sim-stat-label">Total Spent</span><span class="sim-stat-value" id="sim-total-spent">0</span></div><div class="sim-stat-card"><span class="sim-stat-label">Progress</span><span class="sim-stat-value accent" id="sim-progress">0%</span></div></div>
+          <div class="sim-history"><div class="sim-history-header">Trade History</div><div class="sim-history-list" id="sim-history-list"><div class="sim-history-empty">No trades yet.</div></div></div>
+        </div>
+        <div class="sim-right"><div class="sim-chart-card"><div class="mini-chart-title">Price Over Buys</div><canvas id="sim-price-chart"></canvas></div><div class="sim-chart-card"><div class="mini-chart-title">Curve Progress</div><div class="progress-bar-large"><div class="progress-fill" id="sim-progress-fill" style="width:0%"></div><span class="progress-text" id="sim-progress-text">0% → Migration</span></div></div></div>
+      </div>
+    </section>
+    <section class="tab-content" id="panel-export">
+      <div class="export-layout"><h1 class="page-title">Export Configuration</h1><p class="page-subtitle">Copy directly into your project. Works with the official Meteora DBC SDK.</p>
+        <div class="export-tabs" id="export-tabs"><button class="export-tab active" data-export="typescript">TypeScript</button><button class="export-tab" data-export="json">JSON</button></div>
+        <div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang" id="code-lang">TypeScript</span><button class="btn btn-ghost btn-sm" id="btn-copy-code">Copy</button></div><pre class="code-block"><code id="code-output">// Loading...</code></pre></div>
+        <div class="export-info"><div class="export-info-card"><h3>Install</h3><pre class="code-inline">npm install @meteora-ag/dynamic-bonding-curve-sdk @solana/web3.js bn.js</pre></div><div class="export-info-card"><h3>Docs</h3><p><a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank">docs.meteora.ag</a></p></div></div>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
+
