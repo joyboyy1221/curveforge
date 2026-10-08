@@ -22,7 +22,17 @@
         <button class="nav-tab" data-tab="simulator">Simulator</button>
         <button class="nav-tab" data-tab="export">Export</button>
       </div>
-      <div class="nav-right"><a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank" class="nav-link">Docs</a></div>
+      <div class="nav-right">
+        <div class="network-toggle" id="network-toggle">
+          <button class="network-toggle-btn active" data-network="mainnet">Mainnet</button>
+          <button class="network-toggle-btn" data-network="devnet">Devnet</button>
+        </div>
+        <button class="btn btn-sm btn-secondary" id="btn-share"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share</button>
+        <div class="wallet-area" id="wallet-area">
+          <button class="btn-wallet" id="btn-connect-wallet"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg> Connect Wallet</button>
+        </div>
+        <a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank" class="nav-link">Docs</a>
+      </div>
     </div>
   </nav>
   <main class="main" id="main">
@@ -88,6 +98,10 @@
             <div class="summary-row"><span class="summary-key">Locked</span><span class="summary-val" id="sum-locked">100%</span></div>
           </div>
           <div class="info-actions"><button class="btn btn-primary btn-full" id="btn-export-config">Export Config</button><button class="btn btn-secondary btn-full" id="btn-simulate">Simulate</button></div>
+          <div class="live-feed-section">
+            <div class="panel-header" style="margin-top:16px"><span class="panel-title">Live on Solana</span><span class="live-count" id="live-count">Loading...</span></div>
+            <div class="live-feed-list" id="live-feed-list"><div class="feed-loading">Connecting...</div></div>
+          </div>
         </aside>
       </div>
     </section>
@@ -109,6 +123,25 @@
         <div class="export-tabs" id="export-tabs"><button class="export-tab active" data-export="typescript">TypeScript</button><button class="export-tab" data-export="json">JSON</button></div>
         <div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang" id="code-lang">TypeScript</span><button class="btn btn-ghost btn-sm" id="btn-copy-code">Copy</button></div><pre class="code-block"><code id="code-output">// Loading...</code></pre></div>
         <div class="export-info"><div class="export-info-card"><h3>Install</h3><pre class="code-inline">npm install @meteora-ag/dynamic-bonding-curve-sdk @solana/web3.js bn.js</pre></div><div class="export-info-card"><h3>Docs</h3><p><a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank">docs.meteora.ag</a></p></div></div>
+        <div class="deploy-section" id="deploy-section">
+          <div class="deploy-header"><h2 class="page-title">Deploy to Solana</h2><p class="page-subtitle">Deploy your DBC config on-chain. Connect wallet to get started.</p></div>
+          <div class="deploy-card" id="deploy-card">
+            <div class="deploy-wallet-info" id="deploy-wallet-info" style="display:none">
+              <div class="deploy-wallet-row"><span class="deploy-wallet-label">Wallet</span><span class="deploy-wallet-value" id="deploy-wallet-addr">—</span></div>
+              <div class="deploy-wallet-row"><span class="deploy-wallet-label">Network</span><span class="deploy-wallet-value"><span class="network-badge">Mainnet</span></span></div>
+              <div class="deploy-wallet-row"><span class="deploy-wallet-label">Balance</span><span class="deploy-wallet-value" id="deploy-balance">— SOL</span></div>
+              <button class="btn btn-sm btn-secondary" id="btn-airdrop" style="margin-top:8px;display:none">Request Devnet SOL</button>
+            </div>
+            <div class="deploy-steps" id="deploy-steps">
+              <div class="deploy-step" data-step="1"><div class="step-indicator"><span class="step-num">1</span></div><div class="step-content"><div class="step-title">Connect Wallet</div><div class="step-desc">Connect Phantom to sign</div></div><div class="step-status" id="step1-status">Waiting</div></div>
+              <div class="deploy-step" data-step="2"><div class="step-indicator"><span class="step-num">2</span></div><div class="step-content"><div class="step-title">Build Transaction</div><div class="step-desc">Construct createConfig instruction</div></div><div class="step-status" id="step2-status">Waiting</div></div>
+              <div class="deploy-step" data-step="3"><div class="step-indicator"><span class="step-num">3</span></div><div class="step-content"><div class="step-title">Sign & Send</div><div class="step-desc">Approve in wallet</div></div><div class="step-status" id="step3-status">Waiting</div></div>
+              <div class="deploy-step" data-step="4"><div class="step-indicator"><span class="step-num">4</span></div><div class="step-content"><div class="step-title">Confirm</div><div class="step-desc">On-chain confirmation</div></div><div class="step-status" id="step4-status">Waiting</div></div>
+            </div>
+            <div class="deploy-result" id="deploy-result" style="display:none"><div class="deploy-result-label">Transaction</div><a class="deploy-result-link" id="deploy-tx-link" href="#" target="_blank">View on Solscan →</a></div>
+            <div class="deploy-actions"><button class="btn btn-primary btn-full" id="btn-deploy" disabled>Connect Wallet First</button></div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
