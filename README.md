@@ -1,32 +1,42 @@
-# CurveForge
+# CurveForge ⚒️
 
-**Visual configuration tool for Meteora's Dynamic Bonding Curve (DBC).**
+**Visual launchpad for Meteora's Dynamic Bonding Curve (DBC) on Solana.**
 
-CurveForge lets developers and launch teams design, simulate, and export DBC configurations without writing code first. Instead of guessing `sqrtPrices` and `liquidityWeights` arrays, you shape the curve visually, simulate how it plays out, and export production-ready TypeScript for the official SDK.
+> Design bonding curves visually. Simulate launches buy-by-buy. Deploy on-chain. Zero code required.
+
+🔗 **[Live Demo](https://curveforge.vercel.app)** · [Docs](https://docs.meteora.ag/developer-guides/dbc)
+
+---
 
 ## The Problem
 
-Configuring a DBC launch today means:
+Configuring a Meteora DBC launch today means:
 
-1. Reading the SDK docs to understand `createSqrtPrices`, `buildCurveWithCustomSqrtPrices`, and 16 curve points
+1. Writing 200+ lines of SDK code to set `sqrtPrices`, `liquidityWeights`, and fee schedules
 2. Guessing parameter values, deploying to devnet, checking if the curve looks right
-3. Repeating until the price discovery and fee schedule match your launch strategy
-4. No way to visualize how different liquidity weights shape the curve before deploying
+3. Repeating until the price discovery matches your launch strategy
+4. No way to visualize the curve or simulate trades before deploying
 
 This trial-and-error loop slows down every team building on DBC.
 
 ## The Solution
 
-CurveForge provides four tools in one interface:
+CurveForge provides six tools in one interface:
 
 ### 1. Curve Designer
-Interactive parameter editor with real-time curve visualization. Change the shape, number of segments, start/end prices, and migration threshold — the bonding curve updates instantly on a logarithmic price chart.
+Interactive parameter editor with real-time curve visualization. Pick a shape, set prices, drag segments — the bonding curve updates instantly on a logarithmic price chart.
 
-Supports four curve shapes:
+**4 curve shapes:**
 - **Linear** — even price movement
 - **Exponential** — slow start, steep finish
 - **Flat** — stable price with late graduation spike
 - **S-Curve** — slow-fast-slow (sigmoid)
+
+**Configurable parameters:**
+- Start/End price, 1-16 segments
+- Migration threshold (SOL)
+- Fee mode (Exponential/Linear decay), Start/End fee, Decay duration
+- DAMM v2 fee tier, Locked liquidity %
 
 ### 2. Preset Marketplace
 Eight curated configurations for common launch types:
@@ -42,13 +52,14 @@ Eight curated configurations for common launch types:
 | Wide Distribution | Broad distribution | 10x | Linear |
 | DePIN Utility | Infrastructure tokens | 1,000x | S-Curve |
 
-Click any preset to load it into the designer.
+Click any preset → loads into the designer → customize further.
 
 ### 3. Launch Simulator
-Step through the curve buy-by-buy. Input a SOL amount, execute a simulated buy, and watch:
-- Current price update along the curve
-- Tokens received per trade
-- Total quote reserve progress toward migration threshold
+Step through the curve buy-by-buy:
+- Input SOL amount → execute simulated buy
+- Watch current price climb along the curve
+- See tokens received per trade
+- Track progress toward migration threshold
 - Full trade history log
 
 ### 4. Config Export
@@ -67,31 +78,46 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
 });
 ```
 
-Also exports raw JSON for integration with custom tooling.
+Also exports raw JSON for custom tooling.
+
+### 5. Wallet Connect + On-Chain Deploy
+- **Phantom wallet** integration
+- **Mainnet & Devnet** network toggle
+- One-click deploy to Solana with 4-step progress (Connect → Build Tx → Sign → Confirm)
+- Transaction verified on Solscan
+- Devnet SOL airdrop for testing
+
+### 6. Live Feed + Sharing
+- **Live DBC program feed** — real-time transactions from the Meteora DBC program on Solana
+- **Shareable config URLs** — encode your curve in a URL, share with anyone, they get your exact config loaded
 
 ## How It Uses Meteora DBC
 
 CurveForge is built directly on the DBC specification:
 
 - **Curve math** mirrors the on-chain constant-product segments — up to 16 points with logarithmic price scaling
-- **Fee schedules** implement both `FeeSchedulerExponential` and `FeeSchedulerLinear` decay modes from the SDK
+- **Fee schedules** implement both `FeeSchedulerExponential` and `FeeSchedulerLinear` decay modes
 - **Migration threshold** calculates the quote reserve target that triggers DAMM v2 graduation
 - **Liquidity weights** map directly to the `liquidityWeights` array in `buildCurveWithCustomSqrtPrices`
-- **Export code** generates valid calls to `createSqrtPrices` and `buildCurveWithCustomSqrtPrices` with all required parameters
-
-The generated config can be deployed directly using `client.partner.createConfig()` from `@meteora-ag/dynamic-bonding-curve-sdk`.
+- **Export code** generates valid calls to `createSqrtPrices` and `buildCurveWithCustomSqrtPrices`
+- **On-chain deploy** uses `@solana/web3.js` to construct and send transactions to the DBC program (`dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`)
 
 ## Tech Stack
 
-- **Vite** — dev server and build
-- **Vanilla JS** — no framework overhead, ~29KB of application code
-- **Canvas API** — all charts rendered with native 2D canvas (no charting library)
-- **Inter + JetBrains Mono** — typography
+| Layer | Tech |
+|-------|------|
+| Build | Vite |
+| Logic | Vanilla JS (~24KB) |
+| Charts | HTML5 Canvas API (no charting library) |
+| Blockchain | @solana/web3.js |
+| Wallet | Phantom (injected provider) |
+| Typography | Inter + JetBrains Mono |
+| Deploy | Vercel |
 
 ## Run Locally
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/curveforge.git
+git clone https://github.com/joyboyy1221/curveforge.git
 cd curveforge
 npm install
 npm run dev
@@ -113,9 +139,12 @@ Output in `dist/`. Deploy anywhere that serves static files.
 curveforge/
 ├── index.html          # Single page application
 ├── src/
-│   ├── main.js         # Curve engine, simulator, presets, export
+│   ├── main.js         # Curve engine, simulator, presets, export, wallet, deploy
 │   └── style.css       # Design system
+├── public/
+│   └── favicon.jpg     # App icon
 ├── package.json
+├── vite.config.js
 └── README.md
 ```
 
