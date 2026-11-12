@@ -4,7 +4,7 @@
 
 > Design bonding curves visually. Simulate launches buy-by-buy. Deploy on-chain. Zero code required.
 
-🔗 **[Live Demo](https://curveforge.vercel.app)** · [Docs](https://docs.meteora.ag/developer-guides/dbc)
+🔗 **[Live Demo](https://curveforge-weld.vercel.app)** · [Docs](https://docs.meteora.ag/developer-guides/dbc)
 
 ---
 
