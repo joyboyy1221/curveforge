@@ -70,7 +70,7 @@ import { buildCurveWithCustomSqrtPrices, createSqrtPrices } from "@meteora-ag/dy
 
 const sqrtPrices = createSqrtPrices(
   [1e-9, 3.34e-7, 6.67e-7, 1e-6],
-  TokenDecimal.NINE, TokenDecimal.NINE
+  TokenDecimal.NINE, 9
 );
 
 const curveConfig = buildCurveWithCustomSqrtPrices({
@@ -83,9 +83,12 @@ Also exports raw JSON for custom tooling.
 ### 5. Wallet Connect + On-Chain Deploy
 - **Phantom wallet** integration
 - **Mainnet & Devnet** network toggle
-- One-click deploy to Solana with 4-step progress (Connect → Build Tx → Sign → Confirm)
-- Transaction verified on Solscan
-- Devnet SOL airdrop for testing
+- The deploy button builds a real `createConfig2` transaction with the official `@meteora-ag/dynamic-bonding-curve-sdk` and sends it to the DBC program. The result is a usable pool config owned by your wallet (fee claimer + leftover receiver), and its address is shown so you can launch pools from it.
+- 4-step progress (Connect → Build Tx → Sign → Confirm), with links to the config account and the transaction on Solscan
+- The transaction is simulated before it is sent, so an invalid config fails without costing anything
+- Link to the official Devnet faucet for test SOL
+
+Deployed configs use: SPL token, immutable token authority, fees collected in the quote token, dynamic fee on, no migration fee, no pool creation fee, and migration to DAMM v2. Change these in `src/dbc.js`.
 
 ### 6. Live Feed + Sharing
 - **Live DBC program feed** — real-time transactions from the Meteora DBC program on Solana
@@ -97,19 +100,19 @@ CurveForge is built directly on the DBC specification:
 
 - **Curve math** mirrors the on-chain constant-product segments — up to 16 points with logarithmic price scaling
 - **Fee schedules** implement both `FeeSchedulerExponential` and `FeeSchedulerLinear` decay modes
-- **Migration threshold** calculates the quote reserve target that triggers DAMM v2 graduation
+- **Migration threshold** — with explicit segment prices the DBC program derives the quote amount that triggers DAMM v2 graduation from your prices, supply and weights. CurveForge computes it with the SDK and shows it as "On-chain threshold". The simulator still uses the threshold you type in, as an approximation
 - **Liquidity weights** map directly to the `liquidityWeights` array in `buildCurveWithCustomSqrtPrices`
 - **Export code** generates valid calls to `createSqrtPrices` and `buildCurveWithCustomSqrtPrices`
-- **On-chain deploy** uses `@solana/web3.js` to construct and send transactions to the DBC program (`dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`)
+- **On-chain deploy** calls `client.partner.createConfig2` from the Meteora SDK against the DBC program (`dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`). The exported code and the deploy button share the same parameters
 
 ## Tech Stack
 
 | Layer | Tech |
 |-------|------|
 | Build | Vite |
-| Logic | Vanilla JS (~24KB) |
+| Logic | Vanilla JS |
 | Charts | HTML5 Canvas API (no charting library) |
-| Blockchain | @solana/web3.js |
+| Blockchain | @meteora-ag/dynamic-bonding-curve-sdk, @solana/web3.js |
 | Wallet | Phantom (injected provider) |
 | Typography | Inter + JetBrains Mono |
 | Deploy | Vercel |
@@ -125,6 +128,12 @@ npm run dev
 
 Opens at `http://localhost:3000`.
 
+Mainnet uses a public RPC by default. To use your own, create `.env` with:
+
+```bash
+VITE_MAINNET_RPC=https://your-rpc-url
+```
+
 ## Build
 
 ```bash
@@ -139,7 +148,9 @@ Output in `dist/`. Deploy anywhere that serves static files.
 curveforge/
 ├── index.html          # Single page application
 ├── src/
-│   ├── main.js         # Curve engine, simulator, presets, export, wallet, deploy
+│   ├── main.js         # Curve engine, simulator, presets, export, wallet, deploy UI
+│   ├── dbc.js          # Designer state -> Meteora DBC config + createConfig2 transaction
+│   ├── polyfills.js    # Buffer for the browser
 │   └── style.css       # Design system
 ├── public/
 │   └── favicon.jpg     # App icon

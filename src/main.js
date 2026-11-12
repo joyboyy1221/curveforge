@@ -1,11 +1,16 @@
 // CurveForge — Meteora DBC Config Designer
+import './polyfills.js';
 import './style.css';
 // === Solana Wallet + Deploy ===
-import { Connection, PublicKey, Transaction, SystemProgram, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { buildDbcConfig, buildCreateConfigTx, onChainThreshold } from './dbc.js';
 
+// api.mainnet-beta.solana.com answers 403 to browsers, so default to an RPC that
+// allows them. Set VITE_MAINNET_RPC to use your own (Helius, Triton, ...).
+const MAINNET_RPC = import.meta.env.VITE_MAINNET_RPC || 'https://solana-rpc.publicnode.com';
 const NETWORKS = {
   devnet: { rpc: 'https://api.devnet.solana.com', label: 'Devnet', explorer: 'https://solscan.io/tx/TX?cluster=devnet' },
-  mainnet: { rpc: 'https://api.mainnet-beta.solana.com', label: 'Mainnet', explorer: 'https://solscan.io/tx/TX' }
+  mainnet: { rpc: MAINNET_RPC, label: 'Mainnet', explorer: 'https://solscan.io/tx/TX' }
 };
 let currentNetwork = 'mainnet';
 const DBC_PROGRAM = new PublicKey('dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN');
@@ -22,6 +27,7 @@ function switchNetwork(net) {
   const airdropBtn = document.getElementById('btn-airdrop');
   if (airdropBtn) airdropBtn.style.display = net === 'devnet' ? 'block' : 'none';
   if (wallet.connected) updateBalance();
+  resetDeployPanel();
   fetchLiveDeployments();
 }
 
@@ -64,10 +70,6 @@ function shareConfig() {
     if (btn) { const old = btn.textContent; btn.textContent = 'Link Copied!'; setTimeout(() => btn.textContent = old, 2000); }
   });
   window.location.hash = 'cfg=' + encodeConfig();
-}
-// Load from URL on init
-if (window.location.hash.startsWith('#cfg=')) {
-  decodeConfig(window.location.hash.slice(5));
 }
 
 // === Live Deployment Feed ===
@@ -152,7 +154,7 @@ async function connectWallet() {
     if (info) { info.style.display = 'block'; }
     setText('deploy-wallet-addr', short);
     const deployBtn = document.getElementById('btn-deploy');
-    if (deployBtn) { deployBtn.disabled = false; deployBtn.textContent = 'Deploy to Devnet'; }
+    if (deployBtn) { deployBtn.disabled = false; deployBtn.textContent = deployLabel(); }
 
     // Update step 1
     setStepDone(1);
@@ -179,18 +181,11 @@ async function updateBalance() {
   } catch (e) { setText('deploy-balance', 'Error'); }
 }
 
-async function requestAirdrop() {
+// The public devnet RPC faucet is closed, so send people to the official one.
+function requestAirdrop() {
   if (!wallet.publicKey) return;
-  const btn = document.getElementById('btn-airdrop');
-  if (btn) { btn.textContent = 'Requesting...'; btn.disabled = true; }
-  try {
-    const sig = await connection.requestAirdrop(wallet.publicKey, 2 * LAMPORTS_PER_SOL);
-    await connection.confirmTransaction(sig, 'confirmed');
-    await updateBalance();
-    if (btn) { btn.textContent = '+2 SOL ✓'; setTimeout(() => { btn.textContent = 'Request Devnet SOL'; btn.disabled = false; }, 2000); }
-  } catch (e) {
-    if (btn) { btn.textContent = 'Failed (rate limit)'; btn.disabled = false; }
-  }
+  navigator.clipboard?.writeText(wallet.publicKey.toString()).catch(() => {});
+  window.open('https://faucet.solana.com/', '_blank');
 }
 
 function setStepDone(n) {
@@ -216,90 +211,91 @@ function setStepError(n, msg) {
   if (step) { step.className = 'deploy-step error'; step.querySelector('.step-status').textContent = msg || 'Failed'; }
 }
 
+function deployLabel() {
+  return 'Create DBC Config on ' + NETWORKS[currentNetwork].label;
+}
+function explorerAccountUrl(address) {
+  return 'https://solscan.io/account/' + address + (currentNetwork === 'devnet' ? '?cluster=devnet' : '');
+}
+function resetDeployPanel() {
+  const result = document.getElementById('deploy-result');
+  if (result) result.style.display = 'none';
+  const err = document.getElementById('deploy-error');
+  if (err) err.style.display = 'none';
+  const deployBtn = document.getElementById('btn-deploy');
+  if (deployBtn && wallet.connected) { deployBtn.disabled = false; deployBtn.textContent = deployLabel(); }
+  if (wallet.connected) setStepDone(1);
+}
+function showDeployError(msg) {
+  const err = document.getElementById('deploy-error');
+  if (err) { err.textContent = msg; err.style.display = 'block'; }
+}
+
+// Sends a real `createConfig2` instruction to the Meteora DBC program.
 async function deployConfig() {
   if (!wallet.connected || !wallet.provider) return;
   const deployBtn = document.getElementById('btn-deploy');
   if (deployBtn) { deployBtn.disabled = true; deployBtn.textContent = 'Deploying...'; }
+  const errEl = document.getElementById('deploy-error');
+  if (errEl) errEl.style.display = 'none';
+  const resultEl = document.getElementById('deploy-result');
+  if (resultEl) resultEl.style.display = 'none';
 
+  let step = 2;
   try {
-    // Step 2: Build transaction
+    // Step 2: build the createConfig2 transaction with the Meteora SDK
     setStepActive(2);
-    await new Promise(r => setTimeout(r, 500));
-
-    // Create a config account keypair
     const configKeypair = Keypair.generate();
-    const configPubkey = configKeypair.publicKey;
-
-    // Build the curve parameters
-    const sp = segPrices(state.shape, state.segments, state.startPrice, state.endPrice);
-    const wts = segWeights(state.shape, state.segments);
-
-    // Create the config account and store curve data
-    // We store the config as a memo + create account for on-chain record
-    const space = 512; // Account data space for config
-    const rentExempt = await connection.getMinimumBalanceForRentExemption(space);
-
-    const createAccountIx = SystemProgram.createAccount({
-      fromPubkey: wallet.publicKey,
-      newAccountPubkey: configPubkey,
-      lamports: rentExempt,
-      space: space,
-      programId: DBC_PROGRAM,
+    const { tx } = await buildCreateConfigTx({
+      connection,
+      network: currentNetwork,
+      state,
+      prices: segPrices(state.shape, state.segments, state.startPrice, state.endPrice),
+      weights: segWeights(state.shape, state.segments),
+      payer: wallet.publicKey,
+      config: configKeypair.publicKey,
     });
-
-    // Encode curve config as memo for on-chain record
-    const configData = JSON.stringify({
-      _app: 'CurveForge',
-      shape: state.shape,
-      segments: state.segments,
-      prices: sp.map(p => p.toPrecision(6)),
-      weights: wts,
-      supply: state.totalSupply,
-      threshold: state.migrationThreshold,
-      fee: { mode: state.feeMode, start: state.startingFee, end: state.endingFee, dur: state.feeDuration },
-      damm: state.dammFee,
-      locked: state.lockedLiquidity,
-    });
-
-    // Create transaction
-    const tx = new Transaction();
-    tx.add(createAccountIx);
     tx.feePayer = wallet.publicKey;
-
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
-    tx.recentBlockhash = blockhash;
-
-    // Partial sign with config keypair
+    const latest = await connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = latest.blockhash;
+    // The new config account signs for its own creation
     tx.partialSign(configKeypair);
 
-    setStepDone(2);
-
-    // Step 3: Sign with wallet
+    // Step 3: sign with wallet
+    step = 3;
     setStepActive(3);
     const signed = await wallet.provider.signTransaction(tx);
-    setStepDone(3);
 
-    // Step 4: Send and confirm
+    // Step 4: send (with preflight simulation) and confirm
+    step = 4;
     setStepActive(4);
-    const rawTx = signed.serialize();
-    const sig = await connection.sendRawTransaction(rawTx, { skipPreflight: true });
-    await connection.confirmTransaction(sig, 'confirmed');
+    const sig = await connection.sendRawTransaction(signed.serialize());
+    const conf = await connection.confirmTransaction(
+      { signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+      'confirmed'
+    );
+    if (conf.value.err) throw new Error('Transaction failed on-chain: ' + JSON.stringify(conf.value.err));
     setStepDone(4);
 
     // Show result
-    const result = document.getElementById('deploy-result');
+    const configAddr = configKeypair.publicKey.toBase58();
     const link = document.getElementById('deploy-tx-link');
-    if (result) result.style.display = 'block';
+    const cfgLink = document.getElementById('deploy-config-link');
+    if (resultEl) resultEl.style.display = 'block';
     if (link) {
       link.href = NETWORKS[currentNetwork].explorer.replace('TX', sig);
       link.textContent = sig.slice(0,8) + '...' + sig.slice(-8) + ' → View on Solscan (' + NETWORKS[currentNetwork].label + ')';
     }
-    if (deployBtn) { deployBtn.textContent = 'Deployed ✓'; }
+    if (cfgLink) { cfgLink.href = explorerAccountUrl(configAddr); cfgLink.textContent = configAddr; }
+    if (deployBtn) { deployBtn.textContent = 'Config Created ✓'; }
     await updateBalance();
 
   } catch (e) {
     console.error('Deploy failed:', e);
-    setStepError(3, e.message?.includes('User rejected') ? 'Rejected' : 'Failed');
+    const msg = e?.message || String(e);
+    const rejected = /reject/i.test(msg);
+    setStepError(step, rejected ? 'Rejected' : 'Failed');
+    if (!rejected) showDeployError(msg.length > 400 ? msg.slice(0, 400) + '…' : msg);
     if (deployBtn) { deployBtn.disabled = false; deployBtn.textContent = 'Retry Deploy'; }
   }
 }
@@ -574,7 +570,7 @@ function genExport(fmt='typescript'){
   if(fmt==='typescript'){
     el.textContent=`import BN from "bn.js";
 import { NATIVE_MINT } from "@solana/spl-token";
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair${state.quoteToken==='USDC'?', PublicKey':''} } from "@solana/web3.js";
 import {
   ActivationType, BaseFeeMode, buildCurveWithCustomSqrtPrices,
   createSqrtPrices, CollectFeeMode, DammV2DynamicFeeMode,
@@ -584,19 +580,19 @@ import {
 
 // CurveForge Config — ${state.shape} | ${state.segments} segments | ${(state.endPrice/state.startPrice).toFixed(0)}x
 const connection = new Connection(process.env.RPC_URL!, "confirmed");
-const client = DynamicBondingCurveClient.create(connection, "confirmed");
+const client = new DynamicBondingCurveClient(connection, "confirmed");
 
 const sqrtPrices = createSqrtPrices(
-  [${sp.map(p=>p.toPrecision(6)).join(', ')}],
-  TokenDecimal.${td}, TokenDecimal.${qd}
+  [${sp.join(', ')}],
+  TokenDecimal.${td}, ${state.quoteToken==='SOL'?9:6}
 );
 
 const curveConfig = buildCurveWithCustomSqrtPrices({
   token: {
     tokenType: TokenType.SPLToken,
     tokenBaseDecimal: TokenDecimal.${td},
-    tokenQuoteDecimal: TokenDecimal.${qd},
-    tokenAuthorityOption: TokenAuthorityOption.PartnerUpdateAuthority,
+    tokenQuoteDecimal: ${state.quoteToken==='SOL'?9:6},
+    tokenAuthorityOption: TokenAuthorityOption.Immutable,
     totalTokenSupply: ${state.totalSupply}, leftover: 1_000,
   },
   fee: {
@@ -608,12 +604,12 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
       },
     },
     dynamicFeeEnabled: true, collectFeeMode: CollectFeeMode.QuoteToken,
-    creatorTradingFeePercentage: 0, poolCreationFee: 1, enableFirstSwapWithMinFee: false,
+    creatorTradingFeePercentage: 0, poolCreationFee: 0, enableFirstSwapWithMinFee: false,
   },
   migration: {
     migrationOption: MigrationOption.MET_DAMM_V2,
     migrationFeeOption: MigrationFeeOption.Customizable,
-    migrationFee: { feePercentage: 10, creatorFeePercentage: 50 },
+    migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
     migratedPoolFee: {
       collectFeeMode: MigratedCollectFeeMode.QuoteToken,
       dynamicFee: DammV2DynamicFeeMode.Enabled, poolFeeBps: ${state.dammFee},
@@ -631,13 +627,16 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
   sqrtPrices, liquidityWeights: [${wts.join(', ')}],
 });
 
+// partner = your funded wallet keypair; it pays and receives the fees
 const partner = Keypair.generate();
 const config = Keypair.generate();
-const tx = await client.partner.createConfig({
+const tx = await client.partner.createConfig2({
   config: config.publicKey, feeClaimer: partner.publicKey,
   leftoverReceiver: partner.publicKey, payer: partner.publicKey,
-  quoteMint: NATIVE_MINT, ...curveConfig,
-});`;
+  quoteMint: ${state.quoteToken==='USDC'?'new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") /* USDC (mainnet) */':'NATIVE_MINT'}, ...curveConfig,
+  transferFeeParameters: null,
+});
+// sign with [partner, config] and send`;
   } else {
     el.textContent=JSON.stringify({_gen:'CurveForge',shape:state.shape,segments:state.segments,
       prices:sp,weights:wts,totalSupply:state.totalSupply,tokenDecimals:state.tokenDecimals,
@@ -737,8 +736,22 @@ function updateSummary(){
   setText('sum-damm-fee',(state.dammFee/100).toFixed(2)+'%');setText('sum-locked',state.lockedLiquidity+'%');
   setText('stat-start-price',fmtSci(state.startPrice));setText('stat-end-price',fmtSci(state.endPrice));
   setText('stat-multiplier',ms+'x');
+  updateOnChainInfo();
 }
-function updateAll(){updateSummary();drawCurve();drawFeeChart();drawLiqChart();}
+// What the DBC program will actually store for this design.
+function updateOnChainInfo(){
+  let text,ok=true;
+  try{
+    const cfg=buildDbcConfig(state,segPrices(state.shape,state.segments,state.startPrice,state.endPrice),segWeights(state.shape,state.segments));
+    const t=onChainThreshold(cfg,state.quoteToken);
+    text=(t>=1000?fmtNum(t):t.toFixed(2))+' '+state.quoteToken;
+  }catch(e){ok=false;text='Invalid: '+(e?.message||e);}
+  ['sum-onchain-threshold','deploy-onchain-threshold'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.textContent=text;el.classList.toggle('invalid',!ok);el.title=ok?'':text;
+  });
+}
+function updateAll(){updateSummary();drawCurve();drawFeeChart();drawLiqChart();if(wallet.connected)resetDeployPanel();}
 
 // === Bindings ===
 function bind(){
@@ -793,4 +806,8 @@ function bind(){
 
 // === Init ===
 bind();syncUI();updateAll();
+// Load a shared config from the URL (must run after state exists)
+if (window.location.hash.startsWith('#cfg=')) {
+  decodeConfig(window.location.hash.slice(5));
+}
 window.addEventListener('resize',()=>{drawCurve();drawFeeChart();drawLiqChart();});
