@@ -12,6 +12,10 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.99.0"
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^2.0.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5",
+    "buffer": "^6.0.3"
   }
 }

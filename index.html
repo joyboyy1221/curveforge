@@ -92,6 +92,7 @@
             <div class="summary-row highlight"><span class="summary-key">Multiplier</span><span class="summary-val accent" id="sum-mult">1,000x</span></div>
             <div class="summary-divider"></div>
             <div class="summary-row"><span class="summary-key">Threshold</span><span class="summary-val" id="sum-threshold">85 SOL</span></div>
+            <div class="summary-row" title="Quote raised before migration, as stored by the DBC program. Fixed by your prices, supply and segment weights."><span class="summary-key">On-chain threshold</span><span class="summary-val" id="sum-onchain-threshold">—</span></div>
             <div class="summary-row"><span class="summary-key">Start Fee</span><span class="summary-val" id="sum-start-fee">90%</span></div>
             <div class="summary-row"><span class="summary-key">End Fee</span><span class="summary-val" id="sum-end-fee">1%</span></div>
             <div class="summary-row"><span class="summary-key">DAMM Fee</span><span class="summary-val" id="sum-damm-fee">1.00%</span></div>
@@ -124,21 +125,23 @@
         <div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang" id="code-lang">TypeScript</span><button class="btn btn-ghost btn-sm" id="btn-copy-code">Copy</button></div><pre class="code-block"><code id="code-output">// Loading...</code></pre></div>
         <div class="export-info"><div class="export-info-card"><h3>Install</h3><pre class="code-inline">npm install @meteora-ag/dynamic-bonding-curve-sdk @solana/web3.js bn.js</pre></div><div class="export-info-card"><h3>Docs</h3><p><a href="https://docs.meteora.ag/developer-guides/dbc" target="_blank">docs.meteora.ag</a></p></div></div>
         <div class="deploy-section" id="deploy-section">
-          <div class="deploy-header"><h2 class="page-title">Deploy to Solana</h2><p class="page-subtitle">Deploy your DBC config on-chain. Connect wallet to get started.</p></div>
+          <div class="deploy-header"><h2 class="page-title">Deploy to Solana</h2><p class="page-subtitle">Creates a real pool config in the Meteora DBC program with the SDK's <code>createConfig2</code>. Your wallet becomes the fee claimer. Try it on Devnet first; Mainnet costs real SOL for rent.</p></div>
           <div class="deploy-card" id="deploy-card">
             <div class="deploy-wallet-info" id="deploy-wallet-info" style="display:none">
               <div class="deploy-wallet-row"><span class="deploy-wallet-label">Wallet</span><span class="deploy-wallet-value" id="deploy-wallet-addr">—</span></div>
               <div class="deploy-wallet-row"><span class="deploy-wallet-label">Network</span><span class="deploy-wallet-value"><span class="network-badge">Mainnet</span></span></div>
               <div class="deploy-wallet-row"><span class="deploy-wallet-label">Balance</span><span class="deploy-wallet-value" id="deploy-balance">— SOL</span></div>
-              <button class="btn btn-sm btn-secondary" id="btn-airdrop" style="margin-top:8px;display:none">Request Devnet SOL</button>
+              <button class="btn btn-sm btn-secondary" id="btn-airdrop" style="margin-top:8px;display:none" title="Copies your address and opens faucet.solana.com">Get Devnet SOL (faucet) ↗</button>
             </div>
             <div class="deploy-steps" id="deploy-steps">
               <div class="deploy-step" data-step="1"><div class="step-indicator"><span class="step-num">1</span></div><div class="step-content"><div class="step-title">Connect Wallet</div><div class="step-desc">Connect Phantom to sign</div></div><div class="step-status" id="step1-status">Waiting</div></div>
-              <div class="deploy-step" data-step="2"><div class="step-indicator"><span class="step-num">2</span></div><div class="step-content"><div class="step-title">Build Transaction</div><div class="step-desc">Construct createConfig instruction</div></div><div class="step-status" id="step2-status">Waiting</div></div>
+              <div class="deploy-step" data-step="2"><div class="step-indicator"><span class="step-num">2</span></div><div class="step-content"><div class="step-title">Build Transaction</div><div class="step-desc">Construct createConfig2 instruction</div></div><div class="step-status" id="step2-status">Waiting</div></div>
               <div class="deploy-step" data-step="3"><div class="step-indicator"><span class="step-num">3</span></div><div class="step-content"><div class="step-title">Sign & Send</div><div class="step-desc">Approve in wallet</div></div><div class="step-status" id="step3-status">Waiting</div></div>
               <div class="deploy-step" data-step="4"><div class="step-indicator"><span class="step-num">4</span></div><div class="step-content"><div class="step-title">Confirm</div><div class="step-desc">On-chain confirmation</div></div><div class="step-status" id="step4-status">Waiting</div></div>
             </div>
-            <div class="deploy-result" id="deploy-result" style="display:none"><div class="deploy-result-label">Transaction</div><a class="deploy-result-link" id="deploy-tx-link" href="#" target="_blank">View on Solscan →</a></div>
+            <div class="deploy-wallet-row" style="margin-top:12px"><span class="deploy-wallet-label">Migration threshold (on-chain)</span><span class="deploy-wallet-value" id="deploy-onchain-threshold">—</span></div>
+            <div class="deploy-result" id="deploy-result" style="display:none"><div class="deploy-result-label">Config address (use this to launch pools)</div><a class="deploy-result-link" id="deploy-config-link" href="#" target="_blank" style="word-break:break-all">—</a><div class="deploy-result-label" style="margin-top:10px">Transaction</div><a class="deploy-result-link" id="deploy-tx-link" href="#" target="_blank">View on Solscan →</a></div>
+            <div class="deploy-error" id="deploy-error" style="display:none"></div>
             <div class="deploy-actions"><button class="btn btn-primary btn-full" id="btn-deploy" disabled>Connect Wallet First</button></div>
           </div>
         </div>
